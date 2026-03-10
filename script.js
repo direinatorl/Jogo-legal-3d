@@ -1,5 +1,5 @@
 /**
- * Velocity Strategy: 3D Death Race (Geometric Edition)
+ * Velocity Strategy: 3D Death Race (Combat Refined)
  * Powered by Three.js
  */
 
@@ -22,15 +22,15 @@ let player = {
     x: 0,
     z: 0,
     speed: 0,
-    maxSpeed: 80, // Reduzido um pouco para melhor controle
+    maxSpeed: 80,
     hp: 100,
     money: 0,
     fuel: 100,
     tireHealth: 100,
     score: 0,
     lastShot: 0,
-    fireRate: 500,
-    damage: 20
+    fireRate: 400, // Melhorado
+    damage: 25
 };
 
 // --- UI ELEMENTS ---
@@ -49,6 +49,7 @@ const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const shopTriggerBtn = document.getElementById('shop-trigger-btn');
 const closeShopBtn = document.getElementById('close-shop-btn');
+const damageOverlay = document.getElementById('damage-overlay');
 
 function init3D() {
     // Scene
@@ -67,7 +68,7 @@ function init3D() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0x00f2ff, 2);
@@ -104,7 +105,6 @@ function init3D() {
     // Inputs
     window.addEventListener('keydown', e => {
         keys[e.code] = true;
-        // Iniciar com "C"
         if (e.code === 'KeyC' && (gameState === 'MENU' || gameState === 'GAMEOVER')) {
             startGame();
         }
@@ -152,47 +152,25 @@ function startGame() {
 function createPlayerCar() {
     playerObj = new THREE.Group();
 
-    // Corpo Principal (Base)
+    // Corpo Principal
     const baseGeo = new THREE.BoxGeometry(3.5, 1.2, 7);
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.1, metalness: 0.8 });
     const base = new THREE.Mesh(baseGeo, baseMat);
     playerObj.add(base);
 
-    // Cockpit / Topo
+    // Cockpit
     const topGeo = new THREE.BoxGeometry(2.5, 1, 3);
     const topMat = new THREE.MeshStandardMaterial({ color: 0x00f2ff, emissive: 0x00f2ff, emissiveIntensity: 0.2, transparent: true, opacity: 0.8 });
     const top = new THREE.Mesh(topGeo, topMat);
     top.position.set(0, 1, -0.5);
     playerObj.add(top);
 
-    // Rodas (4 cilindros)
-    const wheelGeo = new THREE.CylinderGeometry(0.8, 0.8, 1, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-
-    const wheelPos = [
-        [-2, -0.2, 2.5], [2, -0.2, 2.5],
-        [-2, -0.2, -2.5], [2, -0.2, -2.5]
-    ];
-
-    wheelPos.forEach(pos => {
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(...pos);
-        playerObj.add(wheel);
-    });
-
     // Arma no LADO ESQUERDO
     const cannonGroup = new THREE.Group();
-    const gunRef = new THREE.BoxGeometry(0.6, 0.6, 3);
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
-    const gun = new THREE.Mesh(gunRef, gunMat);
-    cannonGroup.add(gun);
-
+    cannonGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 3), new THREE.MeshStandardMaterial({ color: 0x444444 })));
     const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5), new THREE.MeshBasicMaterial({ color: 0x00f2ff }));
-    muzzle.rotation.x = Math.PI / 2;
-    muzzle.position.z = -1.5;
+    muzzle.rotation.x = Math.PI / 2; muzzle.position.z = -1.5;
     cannonGroup.add(muzzle);
-
     cannonGroup.position.set(-2.2, 0.8, 0);
     playerObj.add(cannonGroup);
 
@@ -202,23 +180,26 @@ function createPlayerCar() {
 
 function spawnEnemy() {
     const enemyGroup = new THREE.Group();
-    const colors = [0xff00ea, 0x00ff00, 0xff9d00, 0xff3131];
+    const colors = [0xff00ea, 0x00ff00, 0xff9100, 0xff3131];
     const color = colors[Math.floor(Math.random() * colors.length)];
 
+    // Corpo Inimigo
     const bodyGeo = new THREE.BoxGeometry(4, 1.5, 7);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.4 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.3 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     enemyGroup.add(body);
 
-    // Rodas pretas
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    const wheelGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.8, 12);
-    [[-2.2, -0.3, 2.5], [2.2, -0.3, 2.5], [-2.2, -0.3, -2.5], [2.2, -0.3, -2.5]].forEach(pos => {
-        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(...pos);
-        enemyGroup.add(wheel);
-    });
+    // ARMAS INIMIGAS (Duas metralhadoras frontais)
+    const gunGeo = new THREE.CylinderGeometry(0.2, 0.2, 2);
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+    const leftGun = new THREE.Mesh(gunGeo, gunMat);
+    leftGun.rotation.x = Math.PI / 2; leftGun.position.set(-1.2, 0.5, 3);
+    enemyGroup.add(leftGun);
+
+    const rightGun = new THREE.Mesh(gunGeo, gunMat);
+    rightGun.rotation.x = Math.PI / 2; rightGun.position.set(1.2, 0.5, 3);
+    enemyGroup.add(rightGun);
 
     enemyGroup.position.set((Math.random() - 0.5) * 28, 1.2, player.z - 300);
     scene.add(enemyGroup);
@@ -227,23 +208,13 @@ function spawnEnemy() {
         mesh: enemyGroup,
         hp: 40,
         lastShot: Date.now(),
-        speed: 0.2 + Math.random() * 0.4
+        speed: 0.4 + Math.random() * 0.6
     });
 }
 
-function toggleShop() {
-    if (gameState === 'MENU' || gameState === 'PLAYING' || gameState === 'SHOP') {
-        const isCurrentlyShop = !shopOverlay.classList.contains('hidden');
-        if (!isCurrentlyShop) {
-            lastStateBeforeShop = gameState;
-            gameState = 'SHOP';
-            shopOverlay.classList.remove('hidden');
-        } else {
-            gameState = lastStateBeforeShop || 'MENU';
-            shopOverlay.classList.add('hidden');
-        }
-        updateShopButtons();
-    }
+function triggerDamageFlash() {
+    damageOverlay.classList.add('flash');
+    setTimeout(() => damageOverlay.classList.remove('flash'), 100);
 }
 
 function update() {
@@ -266,27 +237,24 @@ function update() {
     if (keys['KeyA']) player.x = Math.max(player.x - turnSpeed, -14);
     if (keys['KeyD']) player.x = Math.min(player.x + turnSpeed, 14);
 
-    // Movimento Z (Profundidade)
     player.z -= player.speed * 0.1;
     playerObj.position.set(player.x, 1, player.z);
 
-    // Camera follow
+    // Camera
     camera.position.x += (player.x - camera.position.x) * 0.1;
     camera.position.z = player.z + 25 + (player.speed * 0.1);
     camera.lookAt(player.x, 2, player.z - 20);
 
-    // Loop da Estrada (Faz parecer infinita)
-    if (Math.abs(player.z - road.position.z) > 500) {
-        road.position.z = player.z;
-    }
+    // Loop Estrada
+    if (Math.abs(player.z - road.position.z) > 500) road.position.z = player.z;
 
-    // Atirar
+    // Atirar Jogador
     if (keys['LeftClick'] && Date.now() - player.lastShot > player.fireRate) {
-        spawnBullet(player.x - 2.2, 1.8, player.z - 3, -4, 'PLAYER');
+        spawnBullet(player.x - 2.2, 1.8, player.z - 3, -5, 'PLAYER');
         player.lastShot = Date.now();
     }
 
-    // Gerenciar Balas
+    // Balas
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
         b.mesh.position.z += b.dz;
@@ -306,14 +274,14 @@ function update() {
                         spawnExplosion(e.mesh.position);
                         scene.remove(e.mesh);
                         enemies.splice(ei, 1);
-                        player.money += 50;
-                        player.score += 500;
+                        player.money += 50; player.score += 500;
                     }
                 }
             });
         } else {
-            if (b.mesh.position.distanceTo(playerObj.position) < 3) {
+            if (b.mesh.position.distanceTo(playerObj.position) < 4) {
                 player.hp -= 10;
+                triggerDamageFlash();
                 scene.remove(b.mesh);
                 bullets.splice(i, 1);
                 if (player.hp <= 0) endGame();
@@ -321,25 +289,31 @@ function update() {
         }
     }
 
-    // Gerenciar Inimigos
+    // Inimigos AI
     if (Math.random() < 0.03) spawnEnemy();
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        e.mesh.position.z += player.speed * 0.05 + e.speed;
+        // Enimigos tentam te alcançar ou se manter perto
+        const relativeSpeed = player.speed * 0.05 + e.speed;
+        e.mesh.position.z += relativeSpeed;
 
-        if (e.mesh.position.z > player.z + 50) {
+        if (e.mesh.position.z > player.z + 60) {
             scene.remove(e.mesh);
             enemies.splice(i, 1);
             continue;
         }
 
-        if (Date.now() - e.lastShot > 1500 && e.mesh.position.z < player.z) {
-            spawnBullet(e.mesh.position.x, 1.5, e.mesh.position.z + 5, 2, 'ENEMY');
+        // Atirar mais frequente e inteligente se estiver na frente
+        if (Date.now() - e.lastShot > 1200 && e.mesh.position.z < player.z) {
+            // Tiro duplo
+            spawnBullet(e.mesh.position.x - 1.2, 1.5, e.mesh.position.z + 4, 3, 'ENEMY');
+            spawnBullet(e.mesh.position.x + 1.2, 1.5, e.mesh.position.z + 4, 3, 'ENEMY');
             e.lastShot = Date.now();
         }
 
         if (e.mesh.position.distanceTo(playerObj.position) < 5) {
-            player.hp -= 15;
+            player.hp -= 20;
+            triggerDamageFlash();
             spawnExplosion(e.mesh.position);
             scene.remove(e.mesh);
             enemies.splice(i, 1);
@@ -347,31 +321,19 @@ function update() {
         }
     }
 
-    // Partículas
+    // Partículas & Recursos
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        p.mesh.position.add(p.vel);
-        p.life -= 0.03;
-        p.mesh.scale.setScalar(p.life);
-        if (p.life <= 0) {
-            scene.remove(p.mesh);
-            particles.splice(i, 1);
-        }
+        p.mesh.position.add(p.vel); p.life -= 0.03; p.mesh.scale.setScalar(p.life);
+        if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
     }
-
-    // Recursos
-    player.fuel -= 0.03;
-    player.tireHealth -= 0.015;
-    player.score += Math.floor(player.speed / 10);
+    player.fuel -= 0.03; player.tireHealth -= 0.015; player.score += Math.floor(player.speed / 10);
     if (player.fuel <= 0 || player.tireHealth <= 0) endGame();
-
     updateUI();
 }
 
 function spawnBullet(x, y, z, dz, owner) {
-    const geo = new THREE.SphereGeometry(0.5, 8, 8);
-    const mat = new THREE.MeshBasicMaterial({ color: owner === 'PLAYER' ? 0x00f2ff : 0xff3131 });
-    const bullet = new THREE.Mesh(geo, mat);
+    const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: owner === 'PLAYER' ? 0x00f2ff : 0xff3131 }));
     bullet.position.set(x, y, z);
     scene.add(bullet);
     bullets.push({ mesh: bullet, dz, owner });
