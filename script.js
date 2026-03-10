@@ -56,6 +56,7 @@ let enemies = [];
 let bullets = [];
 let particles = [];
 let roadOffset = 0;
+let lastStateBeforeShop = 'MENU';
 let keys = {};
 
 // Inputs
@@ -64,6 +65,15 @@ window.addEventListener('keydown', e => {
     if (e.code === 'KeyP') toggleShop();
 });
 window.addEventListener('keyup', e => keys[e.code] = false);
+
+// Novo input: Botão esquerdo para atirar
+window.addEventListener('mousedown', e => {
+    if (e.button === 0 && gameState === 'PLAYING') keys['LeftClick'] = true;
+});
+window.addEventListener('mouseup', e => {
+    if (e.button === 0) keys['LeftClick'] = false;
+});
+window.addEventListener('contextmenu', e => e.preventDefault());
 
 function init() {
     resize();
@@ -92,9 +102,15 @@ window.addEventListener('resize', resize);
 
 // Loja Logic
 function toggleShop() {
-    if (gameState === 'MENU' || gameState === 'PLAYING') {
-        const wasPlaying = gameState === 'PLAYING';
-        gameState = shopOverlay.classList.contains('hidden') ? 'SHOP' : (wasPlaying ? 'PLAYING' : 'MENU');
+    if (gameState === 'MENU' || gameState === 'PLAYING' || gameState === 'SHOP') {
+        if (gameState !== 'SHOP') {
+            // Entrando na loja
+            lastStateBeforeShop = gameState;
+            gameState = 'SHOP';
+        } else {
+            // Saindo da loja
+            gameState = lastStateBeforeShop || 'MENU';
+        }
         shopOverlay.classList.toggle('hidden');
         updateShopButtons();
     }
@@ -165,8 +181,8 @@ function update() {
     if (player.y < 100) player.y = 100;
     if (player.y > canvas.height - 50) player.y = canvas.height - 50;
 
-    // Atirar
-    if (keys['Space'] && Date.now() - player.lastShot > player.fireRate) {
+    // Atirar (Mudado para clique esquerdo)
+    if (keys['LeftClick'] && Date.now() - player.lastShot > player.fireRate) {
         bullets.push({ x: player.x, y: player.y - 40, dy: -CONFIG.BULLET_SPEED, owner: 'PLAYER' });
         player.lastShot = Date.now();
     }
