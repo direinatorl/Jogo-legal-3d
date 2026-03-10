@@ -1,16 +1,39 @@
 /**
- * Velocity Strategy: Death Race & Shop
- * Core Logic Engine
+ * Velocity Strategy: 3D Death Race
+ * Powered by Three.js
  */
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// --- CONFIGURAÇÃO THREE.JS ---
+let scene, camera, renderer;
+let clock = new THREE.Clock();
+let lastStateBeforeShop = 'MENU';
 
-// Carregar Imagens
-const playerImg = new Image();
-playerImg.src = 'carro.png';
+// --- ELEMENTOS DO JOGO ---
+let playerObj, playerCarBox;
+let road, roadTexture;
+let enemies = [];
+let bullets = [];
+let particles = [];
+let keys = {};
 
-// Elementos da UI
+// --- ESTADO DO JOGO ---
+let gameState = 'MENU';
+let player = {
+    x: 0,
+    z: 0,
+    speed: 0,
+    maxSpeed: 100,
+    hp: 100,
+    money: 0,
+    fuel: 100,
+    tireHealth: 100,
+    score: 0,
+    lastShot: 0,
+    fireRate: 500,
+    damage: 20
+};
+
+// --- UI ELEMENTS ---
 const speedEl = document.getElementById('speed-val');
 const scoreEl = document.getElementById('score-val');
 const moneyEl = document.getElementById('money-val');
@@ -27,97 +50,137 @@ const restartBtn = document.getElementById('restart-btn');
 const shopTriggerBtn = document.getElementById('shop-trigger-btn');
 const closeShopBtn = document.getElementById('close-shop-btn');
 
-// Configurações do Jogo
-const CONFIG = {
-    TRACK_WIDTH: 450,
-    CAR_WIDTH: 40,
-    CAR_HEIGHT: 70,
-    PLAYER_MAX_HP: 100,
-    ENEMY_MAX_HP: 50,
-    BULLET_SPEED: 12,
-    ENEMY_FIRE_RATE: 2000, // ms
-    PLAYER_FIRE_RATE: 500,  // ms
-    FUEL_CONSUMPTION: 0.05,
-    TIRE_WEAR: 0.02
-};
+// --- TEXTURAS ---
+const textureLoader = new THREE.TextureLoader();
+const playerTexture = textureLoader.load('carro.png');
 
-// Estado do Jogador
-let player = {
-    x: 0,
-    y: 0,
-    speed: 0,
-    maxSpeed: 120,
-    hp: 100,
-    money: 0,
-    fuel: 100,
-    tireHealth: 100,
-    score: 0,
-    lastShot: 0,
-    fireRate: CONFIG.PLAYER_FIRE_RATE,
-    damage: 20
-};
+function init3D() {
+    // Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0b10);
+    scene.fog = new THREE.Fog(0x0a0b10, 50, 300);
 
-let gameState = 'MENU';
-let enemies = [];
-let bullets = [];
-let particles = [];
-let roadOffset = 0;
-let lastStateBeforeShop = 'MENU';
-let keys = {};
+    // Camera
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 15, 30);
+    camera.lookAt(0, 5, 0);
 
-// Inputs
-window.addEventListener('keydown', e => {
-    keys[e.code] = true;
-    if (e.code === 'KeyP') toggleShop();
-});
-window.addEventListener('keyup', e => keys[e.code] = false);
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
 
-// Novo input: Botão esquerdo para atirar
-window.addEventListener('mousedown', e => {
-    if (e.button === 0 && gameState === 'PLAYING') keys['LeftClick'] = true;
-});
-window.addEventListener('mouseup', e => {
-    if (e.button === 0) keys['LeftClick'] = false;
-});
-window.addEventListener('contextmenu', e => e.preventDefault());
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 2);
+    scene.add(ambientLight);
 
-function init() {
-    resize();
-    player.x = canvas.width / 2;
-    player.y = canvas.height - 150;
-    player.hp = CONFIG.PLAYER_MAX_HP;
-    player.money = 0;
-    player.fuel = 100;
-    player.tireHealth = 100;
-    player.score = 0;
-    player.speed = 0;
-    enemies = [];
-    bullets = [];
-    particles = [];
-    gameState = 'MENU';
-    overlay.classList.add('hidden');
-    shopOverlay.classList.add('hidden');
+    const dirLight = new THREE.DirectionalLight(0x00f2ff, 3);
+    dirLight.position.set(0, 20, 10);
+    scene.add(dirLight);
+
+    // Road (Chão)
+    const roadGeo = new THREE.PlaneGeometry(30, 1000);
+    const roadMat = new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        emissive: 0x000000
+    });
+    road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI / 2;
+    scene.add(road);
+
+    // Linhas Laterais Neon
+    const lineGeo = new THREE.PlaneGeometry(1, 1000);
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0x00f2ff });
+
+    const leftLine = new THREE.Mesh(lineGeo, lineMat);
+    leftLine.position.set(-15, 0.1, 0);
+    leftLine.rotation.x = -Math.PI / 2;
+    scene.add(leftLine);
+
+    const rightLine = new THREE.Mesh(lineGeo, lineMat);
+    rightLine.position.set(15, 0.1, 0);
+    rightLine.rotation.x = -Math.PI / 2;
+    scene.add(rightLine);
+
+    // Criar Carro Jogador
+    createPlayerCar();
+
+    // Inputs
+    window.addEventListener('keydown', e => {
+        keys[e.code] = true;
+        if (e.code === 'KeyP') toggleShop();
+    });
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    window.addEventListener('mousedown', e => {
+        if (e.button === 0 && gameState === 'PLAYING') keys['LeftClick'] = true;
+    });
+    window.addEventListener('mouseup', e => {
+        if (e.button === 0) keys['LeftClick'] = false;
+    });
+    window.addEventListener('contextmenu', e => e.preventDefault());
+
+    // UI Listeners
+    startBtn.addEventListener('click', () => {
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') resetGame();
+        gameState = 'PLAYING';
+        startBtn.textContent = 'PAUSAR CORRIDA';
+    });
+
+    closeShopBtn.addEventListener('click', toggleShop);
+    shopTriggerBtn.addEventListener('click', toggleShop);
+    restartBtn.addEventListener('click', () => {
+        resetGame();
+        gameState = 'PLAYING';
+    });
+
+    // Shop upgrades
+    document.querySelectorAll('.buy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const item = btn.dataset.item;
+            const price = parseInt(btn.dataset.price);
+            if (player.money >= price) {
+                player.money -= price;
+                applyUpgrade(item);
+                updateShopButtons();
+                updateUI();
+            }
+        });
+    });
+
+    animate();
 }
 
-function resize() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
+function createPlayerCar() {
+    // Grupo para o carro e arma
+    playerObj = new THREE.Group();
+
+    // Corpo do carro (Box com textura)
+    const bodyGeo = new THREE.BoxGeometry(4, 2, 7);
+    const bodyMat = new THREE.MeshStandardMaterial({ map: playerTexture });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    playerObj.add(body);
+
+    // Arma no LADO ESQUERDO
+    const gunGeo = new THREE.CylinderGeometry(0.3, 0.3, 3);
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const gun = new THREE.Mesh(gunGeo, gunMat);
+    gun.rotation.x = Math.PI / 2;
+    gun.position.set(-2.5, 0.5, -1);
+    playerObj.add(gun);
+
+    playerObj.position.y = 1;
+    scene.add(playerObj);
 }
 
-window.addEventListener('resize', resize);
-
-// Loja Logic
 function toggleShop() {
     if (gameState === 'MENU' || gameState === 'PLAYING' || gameState === 'SHOP') {
-        const isCurrentlyShop = shopOverlay.classList.contains('hidden') === false;
-
+        const isCurrentlyShop = !shopOverlay.classList.contains('hidden');
         if (!isCurrentlyShop) {
-            // Entrando na loja
             lastStateBeforeShop = gameState;
             gameState = 'SHOP';
             shopOverlay.classList.remove('hidden');
         } else {
-            // Saindo da loja (Voltar à estrada)
             gameState = lastStateBeforeShop || 'MENU';
             shopOverlay.classList.add('hidden');
         }
@@ -125,28 +188,12 @@ function toggleShop() {
     }
 }
 
-shopTriggerBtn.addEventListener('click', toggleShop);
-closeShopBtn.addEventListener('click', toggleShop);
-
-document.querySelectorAll('.buy-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const item = btn.dataset.item;
-        const price = parseInt(btn.dataset.price);
-        if (player.money >= price) {
-            player.money -= price;
-            applyUpgrade(item);
-            updateShopButtons();
-            updateUI();
-        }
-    });
-});
-
 function applyUpgrade(item) {
     switch (item) {
         case 'weapon': player.fireRate *= 0.8; break;
         case 'fuel': player.fuel = Math.min(player.fuel + 50, 100); break;
         case 'tires': player.tireHealth = Math.min(player.tireHealth + 50, 100); break;
-        case 'health': player.hp = Math.min(player.hp + 25, CONFIG.PLAYER_MAX_HP); break;
+        case 'health': player.hp = Math.min(player.hp + 25, 100); break;
     }
 }
 
@@ -156,144 +203,183 @@ function updateShopButtons() {
     });
 }
 
-startBtn.addEventListener('click', () => {
-    if (gameState === 'MENU') {
-        gameState = 'PLAYING';
-        startBtn.textContent = 'PAUSAR CORRIDA';
-    } else {
-        gameState = 'MENU';
-        startBtn.textContent = 'RECURAR CORRIDA';
+function resetGame() {
+    player.hp = 100;
+    player.money = 0;
+    player.fuel = 100;
+    player.tireHealth = 100;
+    player.score = 0;
+    player.x = 0;
+    player.z = 0;
+    playerObj.position.set(0, 1, 0);
+
+    enemies.forEach(e => scene.remove(e.mesh));
+    enemies = [];
+    bullets.forEach(b => scene.remove(b.mesh));
+    bullets = [];
+
+    overlay.classList.add('hidden');
+    shopOverlay.classList.add('hidden');
+}
+
+function spawnEnemy() {
+    const enemyGroup = new THREE.Group();
+
+    const bodyGeo = new THREE.BoxGeometry(4, 2, 7);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff00ea, emissive: 0x6a00ff, emissiveIntensity: 0.5 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    enemyGroup.add(body);
+
+    const gunGeo = new THREE.CylinderGeometry(0.3, 0.3, 2);
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const gun = new THREE.Mesh(gunGeo, gunMat);
+    gun.rotation.x = Math.PI / 2;
+    gun.position.set(0, 0.5, 3);
+    enemyGroup.add(gun);
+
+    enemyGroup.position.set((Math.random() - 0.5) * 24, 1, -200);
+    scene.add(enemyGroup);
+
+    enemies.push({
+        mesh: enemyGroup,
+        hp: 50,
+        lastShot: Date.now(),
+        speed: 0.5 + Math.random() * 0.5
+    });
+}
+
+function spawnBullet(x, y, z, dz, owner) {
+    const bulletGeo = new THREE.SphereGeometry(0.4, 8, 8);
+    const bulletMat = new THREE.MeshBasicMaterial({ color: owner === 'PLAYER' ? 0x00f2ff : 0xff3131 });
+    const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+    bullet.position.set(x, y, z);
+    scene.add(bullet);
+    bullets.push({ mesh: bullet, dz, owner });
+}
+
+function spawnExplosion(pos) {
+    for (let i = 0; i < 10; i++) {
+        const pGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const pMat = new THREE.MeshBasicMaterial({ color: 0xff9d00 });
+        const p = new THREE.Mesh(pGeo, pMat);
+        p.position.copy(pos);
+        scene.add(p);
+        particles.push({
+            mesh: p,
+            life: 1.0,
+            vel: new THREE.Vector3((Math.random() - 0.5) * 1, (Math.random() - 0.5) * 1, (Math.random() - 0.5) * 1)
+        });
     }
-});
+}
 
-restartBtn.addEventListener('click', init);
-
-// Loop de Atualização
 function update() {
     if (gameState !== 'PLAYING') return;
 
-    // Movimentação do Jogador (Livre mas restrita à Rua)
-    const moveX = (keys['KeyD'] || keys['ArrowRight'] ? 5 : 0) - (keys['KeyA'] || keys['ArrowLeft'] ? 5 : 0);
-    const moveY = (keys['KeyS'] || keys['ArrowDown'] ? 3 : 0) - (keys['KeyW'] || keys['ArrowUp'] ? 3 : 0);
+    // Movimento Player
+    const delta = clock.getDelta();
 
-    player.x += moveX;
-    player.y += moveY;
+    if (keys['KeyA'] || keys['ArrowLeft']) player.x = Math.max(player.x - 0.5, -12);
+    if (keys['KeyD'] || keys['ArrowRight']) player.x = Math.min(player.x + 0.5, 12);
+    if (keys['KeyW'] || keys['ArrowUp']) player.z = Math.max(player.z - 0.5, -100);
+    if (keys['KeyS'] || keys['ArrowDown']) player.z = Math.min(player.z + 0.5, 10);
 
-    // Restrição à RUA (Retângulo central)
-    const roadLeft = (canvas.width / 2) - (CONFIG.TRACK_WIDTH / 2);
-    const roadRight = (canvas.width / 2) + (CONFIG.TRACK_WIDTH / 2);
+    playerObj.position.x = player.x;
+    playerObj.position.z = player.z;
 
-    if (player.x < roadLeft + 20) player.x = roadLeft + 20;
-    if (player.x > roadRight - 20) player.x = roadRight - 20;
+    // Smoother camera follow
+    camera.position.x += (player.x - camera.position.x) * 0.1;
+    camera.position.z = player.z + 30;
 
-    // Restrição Vertical (Não sai da tela visível na rua)
-    if (player.y < 100) player.y = 100;
-    if (player.y > canvas.height - 50) player.y = canvas.height - 50;
-
-    // Atirar (Botão esquerdo e posição ajustada para a esquerda)
+    // Atirar
     if (keys['LeftClick'] && Date.now() - player.lastShot > player.fireRate) {
-        // Balas saem da arma na esquerda (x - 25 aproximadamente)
-        bullets.push({ x: player.x - 24, y: player.y - 35, dy: -CONFIG.BULLET_SPEED, owner: 'PLAYER' });
+        spawnBullet(player.x - 2.5, 1.5, player.z - 3, -2, 'PLAYER');
         player.lastShot = Date.now();
     }
 
-    // Gerenciar Balas
-    bullets.forEach((b, i) => {
-        b.y += b.dy;
-        if (b.y < -50 || b.y > canvas.height + 50) bullets.splice(i, 1);
+    // Balas
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.mesh.position.z += b.dz;
 
-        // Colisão Bala -> Inimigo
+        if (Math.abs(b.mesh.position.z) > 500) {
+            scene.remove(b.mesh);
+            bullets.splice(i, 1);
+            continue;
+        }
+
         if (b.owner === 'PLAYER') {
             enemies.forEach((e, ei) => {
-                if (checkCollision(b, e, 10, 40)) {
+                if (b.mesh.position.distanceTo(e.mesh.position) < 4) {
                     e.hp -= player.damage;
+                    scene.remove(b.mesh);
                     bullets.splice(i, 1);
                     if (e.hp <= 0) {
-                        spawnExplosion(e.x, e.y);
+                        spawnExplosion(e.mesh.position);
+                        scene.remove(e.mesh);
                         enemies.splice(ei, 1);
                         player.money += 50;
                         player.score += 500;
-                        updateUI();
                     }
                 }
             });
         } else {
-            // Colisão Bala -> Jogador
-            if (checkCollision(b, player, 10, 40)) {
+            if (b.mesh.position.distanceTo(playerObj.position) < 3) {
                 player.hp -= 10;
+                scene.remove(b.mesh);
                 bullets.splice(i, 1);
-                spawnParticle(player.x, player.y, '#ff3131');
                 if (player.hp <= 0) endGame();
             }
         }
-    });
-
-    // Inimigos
-    if (Math.random() < 0.015) {
-        enemies.push({
-            x: roadLeft + 40 + Math.random() * (CONFIG.TRACK_WIDTH - 80),
-            y: -100,
-            hp: CONFIG.ENEMY_MAX_HP,
-            lastShot: Date.now(),
-            speed: 2 + Math.random() * 2
-        });
     }
 
-    enemies.forEach((e, i) => {
-        e.y += e.speed;
+    // Inimigos
+    if (Math.random() < 0.02) spawnEnemy();
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        e.mesh.position.z += e.speed + 1; // Relativo à velocidade da pista
+
+        if (e.mesh.position.z > 50) {
+            scene.remove(e.mesh);
+            enemies.splice(i, 1);
+            continue;
+        }
 
         // IA de Tiro
-        if (Date.now() - e.lastShot > CONFIG.ENEMY_FIRE_RATE) {
-            bullets.push({ x: e.x, y: e.y + 20, dy: CONFIG.BULLET_SPEED / 2, owner: 'ENEMY' });
+        if (Date.now() - e.lastShot > 2000 && e.mesh.position.z < player.z) {
+            spawnBullet(e.mesh.position.x, 1.5, e.mesh.position.z + 4, 1.5, 'ENEMY');
             e.lastShot = Date.now();
         }
 
-        // Colisão Jogador -> Inimigo
-        if (checkCollision(player, e, 40, 40)) {
+        // Colisão Player-Enemy
+        if (e.mesh.position.distanceTo(playerObj.position) < 5) {
             player.hp -= 20;
-            spawnExplosion(e.x, e.y);
-            enemies.splice(i, 1);
+            spawnExplosion(e.mesh.position);
+            scene.remove(e.mesh);
+            enemies.splice(i, i);
             if (player.hp <= 0) endGame();
         }
+    }
 
-        if (e.y > canvas.height) enemies.splice(i, 1);
-    });
+    // Partículas
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.mesh.position.add(p.vel);
+        p.life -= 0.02;
+        p.mesh.scale.setScalar(p.life);
+        if (p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+        }
+    }
 
-    // Consumo e Score
-    player.fuel -= CONFIG.FUEL_CONSUMPTION;
-    player.tireHealth -= CONFIG.TIRE_WEAR;
+    // Recursos
+    player.fuel -= 0.02;
+    player.tireHealth -= 0.01;
     player.score += 1;
-
     if (player.fuel <= 0 || player.tireHealth <= 0) endGame();
 
-    roadOffset += 5;
     updateUI();
-}
-
-function checkCollision(a, b, wa, wb) {
-    return Math.abs(a.x - b.x) < (wa + wb) / 2 && Math.abs(a.y - b.y) < (wa + wb) / 2;
-}
-
-function spawnExplosion(x, y) {
-    for (let i = 0; i < 15; i++) {
-        particles.push({
-            x, y,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10,
-            life: 1,
-            color: Math.random() > 0.5 ? '#ff9d00' : '#ff3131'
-        });
-    }
-}
-
-function spawnParticle(x, y, color) {
-    particles.push({
-        x, y,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
-        life: 0.5,
-        color: color
-    });
 }
 
 function updateUI() {
@@ -309,133 +395,28 @@ function updateUI() {
     fuelPct.innerText = `${fPercent}%`;
     tirePct.innerText = `${tPercent}%`;
 
-    speedEl.innerText = Math.floor(player.speed + 120);
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const centerX = canvas.width / 2;
-
-    // Estrada
-    ctx.fillStyle = '#111';
-    ctx.fillRect(centerX - CONFIG.TRACK_WIDTH / 2, 0, CONFIG.TRACK_WIDTH, canvas.height);
-
-    // Linhas
-    ctx.strokeStyle = '#00f2ff';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(centerX - CONFIG.TRACK_WIDTH / 2, -10, CONFIG.TRACK_WIDTH, canvas.height + 20);
-
-    ctx.setLineDash([40, 40]);
-    ctx.lineDashOffset = -roadOffset;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.beginPath();
-    ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Balas
-    bullets.forEach(b => {
-        ctx.fillStyle = b.owner === 'PLAYER' ? '#00f2ff' : '#ff3131';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    // Inimigos Design mais bonito
-    enemies.forEach(e => {
-        ctx.save();
-        ctx.translate(e.x, e.y);
-
-        // Sombra
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(-18, -32, 40, 70);
-
-        // Corpo Principal (Gradiente)
-        const grad = ctx.createLinearGradient(-20, -35, 20, 35);
-        grad.addColorStop(0, '#ff00ea');
-        grad.addColorStop(1, '#6a00ff');
-        ctx.fillStyle = grad;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#ff00ea';
-        ctx.fillRect(-20, -35, 40, 70);
-
-        // Detalhes Tech (Linhas de Circuito)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(-15, -25, 30, 50);
-
-        // Vidro Frontal
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(-15, -25, 30, 15);
-
-        // Canhão inimigo
-        ctx.fillStyle = '#333';
-        ctx.fillRect(-5, 20, 10, 15);
-
-        ctx.restore();
-    });
-
-    // Jogador
-    drawPlayer(player.x, player.y);
-
-    // Partículas
-    particles.forEach((p, i) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.02;
-        if (p.life <= 0) particles.splice(i, 1);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life;
-        ctx.fillRect(p.x, p.y, 4, 4);
-        ctx.globalAlpha = 1;
-    });
-}
-
-function drawPlayer(x, y) {
-    ctx.save();
-    ctx.translate(x, y);
-
-    // Desenhar Imagem do Carro (Respeitando o formato/proporção original)
-    if (playerImg.complete && playerImg.naturalWidth > 0) {
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = '#00f2ff';
-
-        // Define o tamanho baseado na proporção da imagem
-        const targetHeight = 100;
-        const ratio = playerImg.naturalWidth / playerImg.naturalHeight;
-        const targetWidth = targetHeight * ratio;
-
-        ctx.drawImage(playerImg, -targetWidth / 2, -targetHeight / 2, targetWidth, targetHeight);
-    } else {
-        // Fallback caso a imagem não carregue
-        ctx.fillStyle = '#fff';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#00f2ff';
-        ctx.fillRect(-20, -35, 40, 70);
-    }
-
-    // Arma no LADO ESQUERDO do carro (visual ajustado para acompanhar o formato)
-    ctx.fillStyle = '#444';
-    ctx.fillRect(-35, -20, 10, 25); // Base mais larga
-    ctx.fillStyle = '#00f2ff';
-    ctx.fillRect(-33, -40, 6, 25); // Cano mais visível
-
-    ctx.restore();
+    speedEl.innerText = Math.floor(120 + Math.random() * 5); // Simulação visual de vibração
 }
 
 function endGame() {
     gameState = 'GAMEOVER';
     overlay.classList.remove('hidden');
     finalScoreEl.innerText = player.score;
+    startBtn.textContent = 'REINICIAR CORRIDA';
 }
 
-function loop() {
+function animate() {
+    requestAnimationFrame(animate);
     update();
-    draw();
-    requestAnimationFrame(loop);
+    renderer.render(scene, camera);
 }
 
-init();
-loop();
+// Iniciar quando a página carregar
+window.onload = init3D;
+
+// Handle resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});

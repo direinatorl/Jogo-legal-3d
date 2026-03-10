@@ -104,11 +104,13 @@ body {
 
 /* Canvas */
 #gameCanvas {
-    grid-row: 2;
-    grid-column: 1;
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     display: block;
+    z-index: 1;
 }
 
 /* Sidebar */
