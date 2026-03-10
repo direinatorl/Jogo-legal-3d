@@ -282,16 +282,46 @@ function resetGame() {
 }
 
 function spawnEnemy() {
-    const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(5.5, 2.2, 8.5),
-        new THREE.MeshStandardMaterial({
-            color: [0xff0066, 0x00ff88, 0xffaa00][Math.floor(Math.random() * 3)],
-            roughness: 0
-        })
+    const enemyGroup = new THREE.Group();
+
+    // Cores Neon Aleatórias vibrantes
+    const hue = Math.random() * 360;
+    const color = new THREE.Color(`hsl(${hue}, 100%, 50%)`);
+
+    // Corpo do Inimigo Geometrico
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 1.4, 8),
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.5 })
     );
-    mesh.position.set((Math.random() - 0.5) * 70, 1.2, player.z - 350);
-    scene.add(mesh);
-    enemies.push({ mesh, hp: 60, lastShot: Date.now(), speed: 8 + Math.random() * 8 });
+    enemyGroup.add(body);
+
+    // Detalhe angular superior
+    const detailGeo = new THREE.CylinderGeometry(1.2, 2.2, 1.2, 4);
+    const detail = new THREE.Mesh(detailGeo, new THREE.MeshStandardMaterial({ color: 0x111111 }));
+    detail.position.set(0, 1.2, 0.5);
+    detail.rotation.y = Math.PI / 4;
+    enemyGroup.add(detail);
+
+    // 🛞 4 RODAS (Cilindros)
+    const wheelGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.8, 12);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const wheelPositions = [
+        [-2.8, -0.1, -2.5], [2.8, -0.1, -2.5],
+        [-2.8, -0.1, 2.5], [2.8, -0.1, 2.5]
+    ];
+    wheelPositions.forEach(pos => {
+        const w = new THREE.Mesh(wheelGeo, wheelMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(...pos);
+        enemyGroup.add(w);
+    });
+
+    enemyGroup.position.set((Math.random() - 0.5) * 70, 1, player.z - 350);
+    scene.add(enemyGroup);
+
+    // Velocidade mais lenta conforme pedido
+    const speed = 4 + Math.random() * 4;
+    enemies.push({ mesh: enemyGroup, hp: 60, lastShot: Date.now(), speed: speed });
 }
 
 function animate() {
