@@ -17,6 +17,8 @@ const moneyEl = document.getElementById('money-val');
 const hpBar = document.getElementById('hp-bar');
 const fuelBar = document.getElementById('fuel-bar');
 const tireBar = document.getElementById('tire-bar');
+const fuelPct = document.getElementById('fuel-pct');
+const tirePct = document.getElementById('tire-pct');
 const overlay = document.getElementById('overlay');
 const shopOverlay = document.getElementById('shop-overlay');
 const finalScoreEl = document.getElementById('final-score');
@@ -107,15 +109,18 @@ window.addEventListener('resize', resize);
 // Loja Logic
 function toggleShop() {
     if (gameState === 'MENU' || gameState === 'PLAYING' || gameState === 'SHOP') {
-        if (gameState !== 'SHOP') {
+        const isCurrentlyShop = shopOverlay.classList.contains('hidden') === false;
+
+        if (!isCurrentlyShop) {
             // Entrando na loja
             lastStateBeforeShop = gameState;
             gameState = 'SHOP';
+            shopOverlay.classList.remove('hidden');
         } else {
-            // Saindo da loja
+            // Saindo da loja (Voltar à estrada)
             gameState = lastStateBeforeShop || 'MENU';
+            shopOverlay.classList.add('hidden');
         }
-        shopOverlay.classList.toggle('hidden');
         updateShopButtons();
     }
 }
@@ -295,8 +300,15 @@ function updateUI() {
     moneyEl.innerText = `$${player.money}`;
     scoreEl.innerText = player.score.toString().padStart(6, '0');
     hpBar.style.width = `${player.hp}%`;
-    fuelBar.style.width = `${player.fuel}%`;
-    tireBar.style.width = `${player.tireHealth}%`;
+
+    const fPercent = Math.max(0, Math.floor(player.fuel));
+    const tPercent = Math.max(0, Math.floor(player.tireHealth));
+
+    fuelBar.style.width = `${fPercent}%`;
+    tireBar.style.width = `${tPercent}%`;
+    fuelPct.innerText = `${fPercent}%`;
+    tirePct.innerText = `${tPercent}%`;
+
     speedEl.innerText = Math.floor(player.speed + 120);
 }
 
@@ -385,12 +397,17 @@ function drawPlayer(x, y) {
     ctx.save();
     ctx.translate(x, y);
 
-    // Desenhar Imagem do Carro (carro.png)
-    if (playerImg.complete) {
+    // Desenhar Imagem do Carro (Respeitando o formato/proporção original)
+    if (playerImg.complete && playerImg.naturalWidth > 0) {
         ctx.shadowBlur = 20;
         ctx.shadowColor = '#00f2ff';
-        // Desenhando a imagem centralizada
-        ctx.drawImage(playerImg, -30, -50, 60, 100);
+
+        // Define o tamanho baseado na proporção da imagem
+        const targetHeight = 100;
+        const ratio = playerImg.naturalWidth / playerImg.naturalHeight;
+        const targetWidth = targetHeight * ratio;
+
+        ctx.drawImage(playerImg, -targetWidth / 2, -targetHeight / 2, targetWidth, targetHeight);
     } else {
         // Fallback caso a imagem não carregue
         ctx.fillStyle = '#fff';
@@ -399,11 +416,11 @@ function drawPlayer(x, y) {
         ctx.fillRect(-20, -35, 40, 70);
     }
 
-    // Arma no LADO ESQUERDO do carro
+    // Arma no LADO ESQUERDO do carro (visual ajustado para acompanhar o formato)
     ctx.fillStyle = '#444';
-    ctx.fillRect(-28, -20, 8, 25); // Base da arma
+    ctx.fillRect(-35, -20, 10, 25); // Base mais larga
     ctx.fillStyle = '#00f2ff';
-    ctx.fillRect(-26, -35, 4, 20); // Cano do canhão
+    ctx.fillRect(-33, -40, 6, 25); // Cano mais visível
 
     ctx.restore();
 }
