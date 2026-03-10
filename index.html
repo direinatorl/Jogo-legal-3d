@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity Strategy | Simulador de Corrida</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <!-- HUD Superior -->
+        <header id="hud-top">
+            <div class="stat-box">
+                <span class="label">PONTUAÇÃO</span>
+                <span id="score-val" class="value">000000</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">MELHOR VOLTA</span>
+                <span id="best-lap-val" class="value">--:--:--</span>
+            </div>
+            <div class="stat-box">
+                <span class="label">VELOCIDADE</span>
+                <div class="speed-meter">
+                    <span id="speed-val" class="value">0</span>
+                    <span class="unit">KM/H</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Canvas do Jogo -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Dashboard Lateral (Telemetria) -->
+        <aside id="telemetry">
+            <div class="telemetry-card neon-border">
+                <h2>TELEMETRIA</h2>
+                <div class="gauge-container">
+                    <div class="gauge-item">
+                        <label>COMBUSTÍVEL</label>
+                        <div class="progress-bar">
+                            <div id="fuel-bar" class="progress-fill fuel" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="gauge-item">
+                        <label>DESGASTE PNEUS</label>
+                        <div class="progress-bar">
+                            <div id="tire-bar" class="progress-fill tire" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="gauge-item">
+                        <label>CALOR MOTOR</label>
+                        <div class="progress-bar">
+                            <div id="heat-bar" class="progress-fill heat" style="width: 20%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="strategy-card neon-border">
+                <h2>SETUP TÉCNICO</h2>
+                <div class="setup-controls">
+                    <div class="control-group">
+                        <label>Pressão Pneus</label>
+                        <input type="range" id="tire-pressure" min="20" max="40" value="30">
+                        <span id="tire-pressure-val">30 psi</span>
+                    </div>
+                    <div class="control-group">
+                        <label>Asa Traseira</label>
+                        <input type="range" id="aero-downforce" min="1" max="10" value="5">
+                        <span id="aero-val">Nível 5</span>
+                    </div>
+                </div>
+                <button id="start-btn" class="glow-button">INICIAR CORRIDA</button>
+            </div>
+        </aside>
+
+        <!-- Menu de Fim de Jogo -->
+        <div id="overlay" class="hidden">
+            <div class="modal neon-border">
+                <h1>FIM DE PROVA</h1>
+                <p>Sua pontuação final:</p>
+                <div id="final-score" class="big-score">0</div>
+                <button id="restart-btn" class="glow-button">TENTAR NOVAMENTE</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
