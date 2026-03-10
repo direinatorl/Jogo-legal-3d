@@ -110,7 +110,12 @@ function setupEvents() {
         if (e.code === 'KeyP') toggleShop();
     });
     window.addEventListener('keyup', e => keys[e.code] = false);
-    window.addEventListener('mousedown', () => { if (gameState === 'PLAYING') keys.shoot = true; });
+    window.addEventListener('mousedown', () => {
+        if (gameState === 'PLAYING') {
+            keys.shoot = true;
+            spawnEnemy(); // Carro aparece ao clicar conforme pedido!
+        }
+    });
     window.addEventListener('mouseup', () => { keys.shoot = false; });
 
     // Tab Logic
