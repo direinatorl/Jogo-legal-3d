@@ -19,7 +19,7 @@ let player = {
     hp: 100, money: 0,
     fuel: 100, tireHealth: 100, score: 0, lastShot: 0,
     fireRate: 400, damage: 25,
-    carLevel: 0
+    carLevel: 0, timer: 0
 };
 
 // --- LOJA ---
@@ -49,7 +49,8 @@ const UI = {
     finalScore: document.getElementById('final-score'),
     damageOverlay: document.getElementById('damage-overlay'),
     hud: document.getElementById('hud-top'),
-    telemetry: document.getElementById('telemetry')
+    telemetry: document.getElementById('telemetry'),
+    timerVal: document.getElementById('timer-val')
 };
 
 function init3D() {
@@ -59,7 +60,7 @@ function init3D() {
     const skyColor = 0xff6600; // Laranja Por do Sol intenso
     const groundColor = 0x331100; // Solo escurecido
     scene.background = new THREE.Color(skyColor);
-    scene.fog = new THREE.Fog(skyColor, 50, 400);
+    scene.fog = new THREE.Fog(skyColor, 50, 500); // Neblina mais profunda
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.set(0, 12, 28);
@@ -69,10 +70,14 @@ function init3D() {
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-    // Sol no horizonte
-    const sun = new THREE.DirectionalLight(0xffddaa, 2);
-    sun.position.set(50, 100, -200);
+    // Sol no horizonte - Luz mais rica
+    const sun = new THREE.DirectionalLight(0xffaa22, 2.5);
+    sun.position.set(50, 100, -250);
     scene.add(sun);
+
+    const fillLight = new THREE.PointLight(0xff6600, 1, 300);
+    fillLight.position.set(0, 50, 0);
+    scene.add(fillLight);
 
     // 🛣️ Estrada Infinita com Desenhos/Padrões Tech
     const canvas = document.createElement('canvas');
@@ -276,7 +281,7 @@ function toggleShop() {
 function resetGame() {
     player.hp = 100; player.money = 0; player.fuel = 100; player.tireHealth = 100;
     player.score = 0; player.x = 0; player.z = 0;
-    player.speed = player.baseSpeed;
+    player.speed = player.baseSpeed; player.timer = 0;
     enemies.forEach(e => scene.remove(e.mesh)); enemies = [];
     bullets.forEach(b => scene.remove(b.mesh)); bullets = [];
 }
@@ -319,8 +324,8 @@ function spawnEnemy() {
     enemyGroup.position.set((Math.random() - 0.5) * 70, 1, player.z - 350);
     scene.add(enemyGroup);
 
-    // Velocidade mais lenta conforme pedido
-    const speed = 4 + Math.random() * 4;
+    // Velocidade ainda mais lenta conforme pedido (Reduzido para 2-5 unidades)
+    const speed = 2 + Math.random() * 3;
     enemies.push({ mesh: enemyGroup, hp: 60, lastShot: Date.now(), speed: speed });
 }
 
@@ -354,7 +359,11 @@ function animate() {
             player.lastShot = Date.now();
         }
 
+        // Timer
+        player.timer += 1 / 60; // Assumindo ~60fps
+
         if (Math.random() < 0.02) spawnEnemy();
+
         updateSystems();
         updateUI();
     }
@@ -416,6 +425,7 @@ function updateUI() {
     UI.fuelPct.innerText = `${Math.floor(player.fuel)}%`;
     UI.tirePct.innerText = `${Math.floor(player.tireHealth)}%`;
     UI.speed.innerText = Math.max(0, Math.floor(player.speed * 2.8));
+    UI.timerVal.innerText = `${Math.floor(player.timer)}s`;
 
     document.querySelectorAll('.buy-btn').forEach(btn => {
         const item = btn.dataset.item;
