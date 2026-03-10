@@ -293,39 +293,46 @@ function spawnEnemy() {
     const hue = Math.random() * 360;
     const color = new THREE.Color(`hsl(${hue}, 100%, 50%)`);
 
-    // Corpo do Inimigo Geometrico
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(5, 1.4, 8),
-        new THREE.MeshStandardMaterial({ color: color, roughness: 0.1, metalness: 0.5 })
+    // Chassi do Inimigo (Corpo de Carro mais Definido)
+    const chassi = new THREE.Mesh(
+        new THREE.BoxGeometry(4.8, 0.8, 8),
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.2, metalness: 0.5 })
     );
-    enemyGroup.add(body);
+    enemyGroup.add(chassi);
 
-    // Detalhe angular superior
-    const detailGeo = new THREE.CylinderGeometry(1.2, 2.2, 1.2, 4);
-    const detail = new THREE.Mesh(detailGeo, new THREE.MeshStandardMaterial({ color: 0x111111 }));
-    detail.position.set(0, 1.2, 0.5);
-    detail.rotation.y = Math.PI / 4;
-    enemyGroup.add(detail);
+    // Cabine do Inimigo (Angular/Triangular feel)
+    const cabinGeo = new THREE.BoxGeometry(3, 1.2, 3);
+    const cabin = new THREE.Mesh(cabinGeo, new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.9 }));
+    cabin.position.set(0, 0.8, -0.5);
+    enemyGroup.add(cabin);
 
-    // 🛞 4 RODAS (Cilindros)
-    const wheelGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.8, 12);
+    // Spoiler Traseiro (Aerodinâmico)
+    const spoiler = new THREE.Mesh(
+        new THREE.BoxGeometry(4.8, 0.2, 1.5),
+        new THREE.MeshStandardMaterial({ color: color })
+    );
+    spoiler.position.set(0, 1.0, 3.2);
+    enemyGroup.add(spoiler);
+
+    // 🛞 4 RODAS REAIS (Cilindros)
+    const wheelGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.8, 16);
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-    const wheelPositions = [
-        [-2.8, -0.1, -2.5], [2.8, -0.1, -2.5],
-        [-2.8, -0.1, 2.5], [2.8, -0.1, 2.5]
+    const positions = [
+        [-2.6, 0, -2.5], [2.6, 0, -2.5],
+        [-2.6, 0, 2.5], [2.6, 0, 2.5]
     ];
-    wheelPositions.forEach(pos => {
+    positions.forEach(pos => {
         const w = new THREE.Mesh(wheelGeo, wheelMat);
         w.rotation.z = Math.PI / 2;
         w.position.set(...pos);
         enemyGroup.add(w);
     });
 
-    enemyGroup.position.set((Math.random() - 0.5) * 70, 1, player.z - 350);
+    enemyGroup.position.set((Math.random() - 0.5) * 70, 0.8, player.z - 350);
     scene.add(enemyGroup);
 
-    // Velocidade ainda mais lenta conforme pedido (Reduzido para 2-5 unidades)
-    const speed = 2 + Math.random() * 3;
+    // Velocidade Ultra-Lenta conforme o plano (0.5 - 2.5)
+    const speed = 0.5 + Math.random() * 2;
     enemies.push({ mesh: enemyGroup, hp: 60, lastShot: Date.now(), speed: speed });
 }
 
