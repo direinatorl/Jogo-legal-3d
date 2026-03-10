@@ -6,6 +6,10 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Carregar Imagens
+const playerImg = new Image();
+playerImg.src = 'carro.png';
+
 // Elementos da UI
 const speedEl = document.getElementById('speed-val');
 const scoreEl = document.getElementById('score-val');
@@ -181,9 +185,10 @@ function update() {
     if (player.y < 100) player.y = 100;
     if (player.y > canvas.height - 50) player.y = canvas.height - 50;
 
-    // Atirar (Mudado para clique esquerdo)
+    // Atirar (Botão esquerdo e posição ajustada para a esquerda)
     if (keys['LeftClick'] && Date.now() - player.lastShot > player.fireRate) {
-        bullets.push({ x: player.x, y: player.y - 40, dy: -CONFIG.BULLET_SPEED, owner: 'PLAYER' });
+        // Balas saem da arma na esquerda (x - 25 aproximadamente)
+        bullets.push({ x: player.x - 24, y: player.y - 35, dy: -CONFIG.BULLET_SPEED, owner: 'PLAYER' });
         player.lastShot = Date.now();
     }
 
@@ -326,14 +331,38 @@ function draw() {
         ctx.fill();
     });
 
-    // Inimigos
+    // Inimigos Design mais bonito
     enemies.forEach(e => {
-        ctx.fillStyle = '#ff00ea';
+        ctx.save();
+        ctx.translate(e.x, e.y);
+
+        // Sombra
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(-18, -32, 40, 70);
+
+        // Corpo Principal (Gradiente)
+        const grad = ctx.createLinearGradient(-20, -35, 20, 35);
+        grad.addColorStop(0, '#ff00ea');
+        grad.addColorStop(1, '#6a00ff');
+        ctx.fillStyle = grad;
         ctx.shadowBlur = 15;
-        ctx.fillRect(e.x - 20, e.y - 35, 40, 70);
+        ctx.shadowColor = '#ff00ea';
+        ctx.fillRect(-20, -35, 40, 70);
+
+        // Detalhes Tech (Linhas de Circuito)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-15, -25, 30, 50);
+
+        // Vidro Frontal
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(-15, -25, 30, 15);
+
         // Canhão inimigo
         ctx.fillStyle = '#333';
-        ctx.fillRect(e.x - 5, e.y + 20, 10, 15);
+        ctx.fillRect(-5, 20, 10, 15);
+
+        ctx.restore();
     });
 
     // Jogador
@@ -355,13 +384,27 @@ function draw() {
 function drawPlayer(x, y) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = '#fff';
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#00f2ff';
-    ctx.fillRect(-20, -35, 40, 70);
-    // Canhão
+
+    // Desenhar Imagem do Carro (carro.png)
+    if (playerImg.complete) {
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#00f2ff';
+        // Desenhando a imagem centralizada
+        ctx.drawImage(playerImg, -30, -50, 60, 100);
+    } else {
+        // Fallback caso a imagem não carregue
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#00f2ff';
+        ctx.fillRect(-20, -35, 40, 70);
+    }
+
+    // Arma no LADO ESQUERDO do carro
+    ctx.fillStyle = '#444';
+    ctx.fillRect(-28, -20, 8, 25); // Base da arma
     ctx.fillStyle = '#00f2ff';
-    ctx.fillRect(-5, -45, 10, 15);
+    ctx.fillRect(-26, -35, 4, 20); // Cano do canhão
+
     ctx.restore();
 }
 
