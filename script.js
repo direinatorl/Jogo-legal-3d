@@ -105,6 +105,8 @@ function init3D() {
     // Criar Carro Jogador
     createPlayerCar();
 
+    console.log("3D Scene Initialized successfully");
+
     // Inputs
     window.addEventListener('keydown', e => {
         keys[e.code] = true;
@@ -225,8 +227,16 @@ function resetGame() {
 function spawnEnemy() {
     const enemyGroup = new THREE.Group();
 
+    // Cores aleatórias para inimigos
+    const enemyColors = [0xff00ea, 0x00ff00, 0xff9100, 0xff0000, 0x6a00ff];
+    const chosenColor = enemyColors[Math.floor(Math.random() * enemyColors.length)];
+
     const bodyGeo = new THREE.BoxGeometry(4, 2, 7);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff00ea, emissive: 0x6a00ff, emissiveIntensity: 0.5 });
+    const bodyMat = new THREE.MeshStandardMaterial({
+        color: chosenColor,
+        emissive: chosenColor,
+        emissiveIntensity: 0.3
+    });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     enemyGroup.add(body);
 
@@ -237,7 +247,7 @@ function spawnEnemy() {
     gun.position.set(0, 0.5, 3);
     enemyGroup.add(gun);
 
-    enemyGroup.position.set((Math.random() - 0.5) * 24, 1, -200);
+    enemyGroup.position.set((Math.random() - 0.5) * 24, 1, player.z - 200);
     scene.add(enemyGroup);
 
     enemies.push({
@@ -275,20 +285,34 @@ function spawnExplosion(pos) {
 function update() {
     if (gameState !== 'PLAYING') return;
 
-    // Movimento Player
-    const delta = clock.getDelta();
+    // Movimento Player (Aceleração com W/S)
+    const accelRate = 0.5;
+    const friction = 0.2;
+    const turnSpeed = 0.5;
 
-    if (keys['KeyA'] || keys['ArrowLeft']) player.x = Math.max(player.x - 0.5, -12);
-    if (keys['KeyD'] || keys['ArrowRight']) player.x = Math.min(player.x + 0.5, 12);
-    if (keys['KeyW'] || keys['ArrowUp']) player.z = Math.max(player.z - 0.5, -100);
-    if (keys['KeyS'] || keys['ArrowDown']) player.z = Math.min(player.z + 0.5, 10);
+    if (keys['KeyW'] || keys['ArrowUp']) {
+        player.speed = Math.min(player.speed + accelRate, player.maxSpeed);
+    } else if (keys['KeyS'] || keys['ArrowDown']) {
+        player.speed = Math.max(player.speed - accelRate, -20); // Ré devagar
+    } else {
+        // Atrito natural
+        if (player.speed > 0) player.speed = Math.max(0, player.speed - friction);
+        if (player.speed < 0) player.speed = Math.min(0, player.speed + friction);
+    }
+
+    if (keys['KeyA'] || keys['ArrowLeft']) player.x = Math.max(player.x - turnSpeed, -12);
+    if (keys['KeyD'] || keys['ArrowRight']) player.x = Math.min(player.x + turnSpeed, 12);
+
+    // O movimento Z agora é baseado na velocidade
+    player.z -= player.speed * 0.05;
 
     playerObj.position.x = player.x;
     playerObj.position.z = player.z;
 
-    // Smoother camera follow
+    // Camera follow (ajustada para acompanhar a velocidade)
     camera.position.x += (player.x - camera.position.x) * 0.1;
-    camera.position.z = player.z + 30;
+    camera.position.z = player.z + 30 + (player.speed * 0.1);
+    camera.lookAt(player.x, 2, player.z - 10);
 
     // Atirar
     if (keys['LeftClick'] && Date.now() - player.lastShot > player.fireRate) {
@@ -337,9 +361,10 @@ function update() {
 
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        e.mesh.position.z += e.speed + 1; // Relativo à velocidade da pista
+        // Inimigos se movem em relação à velocidade do mundo + velocidade própria
+        e.mesh.position.z += player.speed * 0.05 + e.speed;
 
-        if (e.mesh.position.z > 50) {
+        if (e.mesh.position.z > player.z + 50) {
             scene.remove(e.mesh);
             enemies.splice(i, 1);
             continue;
@@ -395,7 +420,7 @@ function updateUI() {
     fuelPct.innerText = `${fPercent}%`;
     tirePct.innerText = `${tPercent}%`;
 
-    speedEl.innerText = Math.floor(120 + Math.random() * 5); // Simulação visual de vibração
+    speedEl.innerText = Math.max(0, Math.floor(player.speed * 3)); // Escalado para KM/H visual
 }
 
 function endGame() {
@@ -407,16 +432,26 @@ function endGame() {
 
 function animate() {
     requestAnimationFrame(animate);
-    update();
-    renderer.render(scene, camera);
+    try {
+        update();
+        renderer.render(scene, camera);
+    } catch (e) {
+        console.error("Render loop error:", e);
+    }
 }
 
-// Iniciar quando a página carregar
-window.onload = init3D;
+// Iniciar quando a página carregar ou se já estiver carregada
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init3D();
+} else {
+    window.addEventListener('DOMContentLoaded', init3D);
+}
 
-// Handle resize
+// Handle resize de forma mais eficiente
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 });
