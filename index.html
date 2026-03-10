@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Velocity Strategy | Simulador de Corrida</title>
+    <title>Velocity Strategy | Death Race & Shop</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,12 +16,18 @@
         <!-- HUD Superior -->
         <header id="hud-top">
             <div class="stat-box">
+                <span class="label">DINHEIRO</span>
+                <span id="money-val" class="value money-text">$0</span>
+            </div>
+            <div class="stat-box">
                 <span class="label">PONTUAÇÃO</span>
                 <span id="score-val" class="value">000000</span>
             </div>
             <div class="stat-box">
-                <span class="label">MELHOR VOLTA</span>
-                <span id="best-lap-val" class="value">--:--:--</span>
+                <span class="label">VIDA</span>
+                <div class="health-bar-container">
+                    <div id="hp-bar" class="hp-fill" style="width: 100%;"></div>
+                </div>
             </div>
             <div class="stat-box">
                 <span class="label">VELOCIDADE</span>
@@ -34,6 +40,11 @@
 
         <!-- Canvas do Jogo -->
         <canvas id="gameCanvas"></canvas>
+
+        <!-- Controles & Info -->
+        <div id="controls-hint">
+            WASD: Mover | ESPAÇO: Atirar | P: Loja
+        </div>
 
         <!-- Dashboard Lateral (Telemetria) -->
         <aside id="telemetry">
@@ -52,37 +63,58 @@
                             <div id="tire-bar" class="progress-fill tire" style="width: 100%;"></div>
                         </div>
                     </div>
-                    <div class="gauge-item">
-                        <label>CALOR MOTOR</label>
-                        <div class="progress-bar">
-                            <div id="heat-bar" class="progress-fill heat" style="width: 20%;"></div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
             <div class="strategy-card neon-border">
-                <h2>SETUP TÉCNICO</h2>
-                <div class="setup-controls">
-                    <div class="control-group">
-                        <label>Pressão Pneus</label>
-                        <input type="range" id="tire-pressure" min="20" max="40" value="30">
-                        <span id="tire-pressure-val">30 psi</span>
-                    </div>
-                    <div class="control-group">
-                        <label>Asa Traseira</label>
-                        <input type="range" id="aero-downforce" min="1" max="10" value="5">
-                        <span id="aero-val">Nível 5</span>
-                    </div>
-                </div>
-                <button id="start-btn" class="glow-button">INICIAR CORRIDA</button>
+                <h2>CONFIGURAÇÕES</h2>
+                <button id="shop-trigger-btn" class="glow-button">ABRIR LOJA (P)</button>
+                <button id="start-btn" class="glow-button primary">INICIAR CORRIDA</button>
             </div>
         </aside>
+
+        <!-- Loja Modal -->
+        <div id="shop-overlay" class="hidden">
+            <div class="modal shop-modal neon-border">
+                <h1>OFF-ROAD SHOP</h1>
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <h3>Melhorar Arma</h3>
+                            <p>Aumenta cadência de tiro</p>
+                        </div>
+                        <button class="buy-btn" data-item="weapon" data-price="100">Comprar ($100)</button>
+                    </div>
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <h3>Tanque de Combustível</h3>
+                            <p>Aumenta capacidade máxima</p>
+                        </div>
+                        <button class="buy-btn" data-item="fuel" data-price="150">Comprar ($150)</button>
+                    </div>
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <h3>Pneus de Competição</h3>
+                            <p>Reduz o desgaste</p>
+                        </div>
+                        <button class="buy-btn" data-item="tires" data-price="200">Comprar ($200)</button>
+                    </div>
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <h3>Reparar Vida</h3>
+                            <p>Restaura 25% de HP</p>
+                        </div>
+                        <button class="buy-btn" data-item="health" data-price="50">Comprar ($50)</button>
+                    </div>
+                </div>
+                <button id="close-shop-btn" class="glow-button">VOLTAR À ESTRADA</button>
+            </div>
+        </div>
 
         <!-- Menu de Fim de Jogo -->
         <div id="overlay" class="hidden">
             <div class="modal neon-border">
-                <h1>FIM DE PROVA</h1>
+                <h1>VEÍCULO DESTRUÍDO</h1>
                 <p>Sua pontuação final:</p>
                 <div id="final-score" class="big-score">0</div>
                 <button id="restart-btn" class="glow-button">TENTAR NOVAMENTE</button>
